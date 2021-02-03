@@ -1,0 +1,1541 @@
+---
+title: "Advanced Social Media Analysis Project"
+author: "Julieva Cohen, Alexandra Amiens"
+output: html_document
+---
+
+
+# Navigation {.tabset .tabset-fade .tabset-pills}
+
+## Presentation of the project
+
+This group project responds to **professor Serge Nyawa instructions** written below :
+
+Your topic should be related to “Advanced Social Media Analytics” with a Business/economics/finance interest and should contain : 
+ 
+- Your dataset should come from a social media / blog / website.
+- Discovery: learn the business domain, assess the resources available to support the project, frame the business problem as an analytics challenge, formulate initial hypotheses to test.
+- Data preparation: explain how you did the extract, load, and transform (ELT) or extract, transform and load (ETL) steps, to get your data.
+- Model planning: explain and justify the choice of your methods, techniques. Describe how you learn about the relationships between variables, how you did the selection of key variables and the most suitable models.
+- Model building / estimation: explain your estimation strategy and results.
+- Communication of results: determine if the results of the project are a success or a failure, identify key findings, quantify the business value, and develop a narrative to convey findings to stakeholders.
+ 
+The project is about the new technology of 5G on the French market and especially its impact on the twitter communication strategy of the main mobile operators SFR and Bouygues Telecom.
+
+To do the analysis we did 3 dataset all scrapped from the twitter API:
+- SFRdata 
+- BouygueData
+- data5G
+
+Bouygues Telecom switched on its 5G network in 20 major cities the 1st of December 2020. The French operator has also confirmed the goal of achieving nationwide coverage by the end of 2021. On the other hand, SFR announced in late November the availability of its 5G service in the city of Nice. The company confirmed plans to extend its coverage to more than 120 municipalities throughout December.
+Considering this new offer on the french market we could wonder what is the twitter strategy of SFR and Bouygues to promote the 5g. To do so we will do a cluster analysis, an hashtag network, a sentiment analysis and a topic modeling for each dataset.
+
+The last dataset is the 5G one, it will help us understand the popularity of this new technology on the social media and especially the french point of view about this new offer highly controversial.
+
+Summary:
+
+1. Extract and Load the databases<br>
+
+2. SFR data Analysis<br>
+2.1 Clean and Exploratory analysis<br>
+2.2 Users Analysis<br>
+2.3 Cluster Analysis<br>
+2.4 Hastag Analysis<br>
+2.5 Sentiment Analysis<br>
+2.6 Topic Modeling<br>
+
+3. BouyguesTelecom data Analysis<br>
+3.1 Clean and Exploratory analysis<br>
+3.2 Users Analysis<br>
+3.3 Cluster Analysis<br>
+3.4 Hastag Analysis<br>
+3.5 Sentiment Analysis<br>
+3.6 Topic Modeling<br>
+
+4. 5G data analysis<br>
+4.1 Clean and Exploratory analysis<br>
+4.2 Users Analysis<br>
+4.3 Cluster Analysis<br>
+4.4 Hastag Network<br>
+4.5 Sentiment Analysis<br>
+4.6 Topic Modeling<br>
+
+
+## 1.Extract and Load the databases
+
+We load all the libraries we will need.
+```{r message=FALSE, warning=FALSE, warming=FALSE}
+
+library("twitteR")
+library("rtweet")
+library("ggplot2")
+library("dplyr")
+library("wordcloud")
+library("igraph")
+
+# text mining libraris
+
+library("tidytext")
+library("maps")
+library("ggmap")
+
+#install.packages(c('ROAuth','RCurl'))
+library("ROAuth")
+library("RCurl")
+
+#Opinion mining libraries 
+library("tm")
+library("stringi")
+library("stringr")
+
+#Sentiment analysis 
+library("sentimentr")
+
+#Topic Modelling 
+library("tidytext")
+library("topicmodels")
+library("tidyverse")
+library("rvest")
+library("reshape2")
+```
+
+```{r message=FALSE, warning=FALSE}
+download.file(url="http://curl.haxx.se/ca/cacert.pem",
+destfile="C:\\Users\\Alexandra\\Documents\\TBS\\M2\\UE2-Big Data Analytics\\Advenced Social media Analysis - Serge\\Project\\cacer.pem")
+```
+
+
+```{r}
+my.key<-"lsU1YVhQYkMo5F2yj4c81KmLQ"
+my.secret<-"UauEJdbdqe7mMyRDQANZvbpt4KEJLrpCwR9R4PgjmK9sPHZB5J"
+access_token<-"1097423311733178369-91mygBoRnSTGNdhswzqLVtAT2Mbwih"
+access_secret<-"9kuZACVMKj587nei5JrwN1epCTOlL2OJ90sz5pgcjfiDT"
+
+            
+setup_twitter_oauth(my.key, my.secret, access_token, access_secret)
+```
+
+Using our Twitter API, we can extract the tweets and obtain Twitter data
+```{r}
+query <- 'BouyguesTelecom OR bouyguestelecolm OR bouyguesTélécom OR bouyguestélécom OR "BOUYGUES TELECOM" OR "Bouygues Telecom" OR "Bouygues Télécom" OR #BouyguesTelecom OR #bouyguestelecom'
+
+Bouyguedata<- search_tweets(query, n=5000, lang='fr')
+
+SFRdata<- search_tweets("SFR OR sfr" , n=5000, lang="fr")
+
+data5G<- search_tweets("5g OR 5G", n=5000, lang="fr")
+```
+
+
+## 2. SFR data Analysis 
+### 2.1 Clean and Exploratory analysis
+
+```{r}
+class(SFRdata)
+head(SFRdata, n=10)
+```
+
+#### Twitter Users - Unique Location 
+
+Removing special character in non latin language and remove to na.omit 
+```{r}
+SFRdata$location2<-iconv(SFRdata$location,to = "ASCII", sub="")
+```
+
+Location list 
+```{r}
+SFRdata$location2[SFRdata$location2==""]<- NA
+SFRdata$location2[SFRdata$location2==", "]<- NA
+SFRdata$location2[SFRdata$location2=="Paris"]<- "Paris, France"
+SFRdata$location2[SFRdata$location2=="Comparateur de forfait Mobile"]<- NA
+SFRdata$location2[SFRdata$location2=="Bordeaux"]<- "Bordeaux, France"
+SFRdata$location2[SFRdata$location2=="Marseille"]<- "Marseille, France"
+SFRdata$location2[SFRdata$location2=="Nice"]<- "Nice, France"
+SFRdata$location2[SFRdata$location2=="Lille"]<- "Lille, France"
+SFRdata$location2[SFRdata$location2=="Lyon"]<- "Lyon, France"
+SFRdata$location2[SFRdata$location2=="Toulouse"]<- "Toulouse, France"
+```
+
+```{r}
+SFRdata %>%count(location2, sort=TRUE) %>%
+mutate(location2=reorder(location2,n)) %>%
+na.omit()%>% top_n(10)%>%ggplot(aes(x=location2,y=n))+ geom_bar(stat="identity")+ geom_col(fill="brown1")+ coord_flip() +
+labs(x = "Locations", y = "Count",
+title = "Twitter users locations twitting about SFR")+ 
+theme_light()
+```
+
+We can see that most of the tweets are posted from Paris due to the seat location of SFR. 
+
+
+#### Time series of tweets counts
+
+```{r message=FALSE, warning=FALSE}
+ts_plot(SFRdata, "hours")+
+ggplot2::theme_minimal()+
+ggplot2::theme(plot.title=ggplot2::element_text(face="bold"))+
+ggplot2::labs(x=NULL,y=NULL,
+title="Frequency of SFR Twitter statuses",
+subtitle="Twitter status counts 1-hour intervals",
+caption="\nSource: Data collected from Twitter's API")
+```
+
+The most striking thing in this graph is the seasonnality of the frequency of tweets about SFR over the last 7 days. 
+
+
+#### Analysis of the writtors of the different tweets
+
+We convert the orignal dataset to a new dataframe.
+
+```{r}
+tweets.df <-as.data.frame(SFRdata)
+print(dim(tweets.df))
+print(colnames(tweets.df))
+```
+
+Overview of 4 columns of the tweets dataframe 
+```{r}
+print(tweets.df[1:10,c('created_at','screen_name','is_retweet','hashtags')])
+```
+
+
+```{r}
+NBperusers <- table(tweets.df$screen_name)
+NBperusers<- sort(NBperusers,decreasing=TRUE)
+print(NBperusers[1:10])
+```
+SFR_SAV and REDbySFR wrote the highest number of tweets.
+
+
+Number of writtors of tweets:
+```{r}
+print(length(unique(tweets.df$screen_name)))
+```
+
+
+Barplot of users who wrote more than 10 tweets
+```{r message=FALSE, warning=FALSE}
+barplot(NBperusers [NBperusers >= 10], las = 2,cex.names=0.7,col="brown1", main="Users that wrote more than 10 tweets")
+```
+
+
+
+#### Original Tweets without the RT
+
+Number of original tweets among the 5000: 
+```{r}
+id_original <- which(!tweets.df$is_retweet)
+print(length(id_original))
+```
+
+Among all these original tweets, we plot a new graph of the most active users. 
+```{r}
+NBperusers_bis <- table(tweets.df$screen_name[id_original])
+NBperusers_bis <- sort(NBperusers_bis,decreasing=TRUE)
+barplot(NBperusers_bis [NBperusers_bis >= 10], las = 2,cex.names=0.7, col = "brown1", main="Most Active Users - RT excluded")
+```
+
+The distribution of users on original tweets is almost the same, especially for the first 5.
+
+### 2.2 Analysis of the Users
+
+We first create a data.frame with the original message in which we remove the duplicate 
+```{r message=FALSE, warning=FALSE}
+originalmsg.df <- tweets.df[!duplicated(tweets.df$text),]
+```
+
+Number of tweets without duplicate:
+```{r}
+print(nrow(originalmsg.df))
+```
+
+We collect the messages in a specify vector :
+
+```{r message=FALSE, warning=FALSE}
+messages <- originalmsg.df$text
+print(length(messages))
+```
+
+We verification of the lenght of the first element in the vector.
+```{r warning=FALSE}
+print(messages[1])
+```
+
+We remove the line break, URLs, extra spaces, "\", spaces at the end of the line, lowercase, accents, the indicator "RT" and punctuation 
+```{r message=FALSE, warning=FALSE}
+msgClean <- iconv(messages, to = "ASCII", sub="")
+msgClean <- gsub("\n"," ",messages)
+msgClean <- gsub('http\\S+\\s*',"",msgClean)
+msgClean <- gsub("\\s+"," ",msgClean)
+msgClean <- gsub("[\\]","",msgClean)
+msgClean <- gsub("\\s*$","",msgClean)
+msgClean <- tolower(msgClean)
+msgClean <- gsub("[éèê]","e",msgClean)
+msgClean <- gsub("[àâ]","a",msgClean)
+msgClean <- gsub("[ùû]","u",msgClean)
+msgClean <- gsub("rt ","",msgClean)
+```
+
+We check if the changes have been applied on the first element of the vector 'message'.
+```{r}
+print(msgClean[1])
+```
+
+We remove the duplicates
+```{r}
+msgClean <- msgClean[!duplicated(msgClean)]
+```
+
+Numbers of tweets messages:
+```{r}
+print(length(msgClean)) 
+```
+
+Isolate each word between spaces
+```{r message=FALSE, warning=FALSE}
+all_words <- unlist(strsplit(msgClean," "))
+```
+
+On the text to dermine a user with can looking for "@"
+```{r}
+signature_users <- regexpr("^@[[:alnum:]_]*",all_words)
+```
+
+Find of the terms with an "#"
+```{r}
+list_users <- regmatches(all_words,signature_users)
+```
+
+Numbers of hashtag:
+```{r}
+print(length(list_users))
+```
+
+Aparition of the users
+```{r}
+nb_users <- table(list_users)
+sort_nb_users <- sort(nb_users,decreasing=TRUE)
+```
+
+Most frequent users
+```{r}
+print(sort_nb_users[1:10])
+```
+The most frequent user is SFR.
+
+### 2.3 Cluster analysis
+
+```{r message=FALSE, warning=FALSE}
+usableText <- iconv(SFRdata$text, to = "ASCII", sub="")
+SFRdata_corpus<-Corpus(VectorSource(usableText))
+SFRdata_corpus<-tm_map(SFRdata_corpus,tolower)
+SFRdata_corpus<-tm_map(SFRdata_corpus,function(x)removeWords(x,stopwords("french")))
+SFRdata_corpus<-tm_map(SFRdata_corpus,removeWords,c("chez","faire","tout","jai","tout","fait","cest","plus","dites","quand","mme","meme","passe","rien","depuis","pouvez","donc","quoi","via","afin","comme","suivant","suivantes","bonjour","avant"))
+SFRdata_corpus<-tm_map(SFRdata_corpus,removeWords,stopwords("french"))
+SFRdata_corpus<-tm_map(SFRdata_corpus,removePunctuation)
+SFRdata_corpus<-tm_map(SFRdata_corpus,removeNumbers)
+```
+
+```{r message=FALSE, warning=FALSE}
+text_corpus <- tm_map(SFRdata_corpus,content_transformer(function(x) iconv(x,to='ASCII',sub='byte')))
+```
+
+```{r}
+SFRdata.tdm <- TermDocumentMatrix(text_corpus)
+m <- as.matrix(SFRdata.tdm)
+m[1:10,1:10]
+```
+
+```{r}
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 50)
+```
+
+```{r message=FALSE, warning=FALSE}
+barplot(d[1:20,]$freq, las = 3, names.arg = d[1:20,]$word,col ="brown1", main ="Most frequent words",ylab = "Word frequency")
+```
+
+SFR is the most frequent word which is normal considering that we used it to do the extraction.
+We still find words related to the customers services but also linked to the main competitors of SFR such as Free and Orange.
+
+```{r}
+print(text_corpus[[1]]$content)
+```
+
+```{r}
+barplot(d[1:20,]$freq, las = 3,
+names.arg = d[1:20,]$word,col ="brown1 ",
+main ="Most frequent words",
+ylab = "Word frequencies")
+```
+
+```{r message=FALSE, warning=FALSE}
+SFRdata.tdm
+```
+
+```{r}
+findFreqTerms(SFRdata.tdm, lowfreq=10)[1:10]
+```
+
+```{r}
+SFRdata.tdm<-removeSparseTerms(SFRdata.tdm,sparse=0.95)
+SFRdata.df <- as.data.frame(as.matrix(SFRdata.tdm))
+```
+
+```{r}
+SFRdata.df.scale <- scale(SFRdata.df)
+SFRdata.dist <- dist(SFRdata.df.scale,method = "euclidean")
+```
+
+```{r}
+SFRdata.fit<-hclust(SFRdata.dist, method="ward.D2")
+plot(SFRdata.fit, main="Cluster-SFR")
+```
+
+
+```{r message=FALSE, warning=FALSE}
+groups <- cutree(SFRdata.fit, k=5)
+plot(SFRdata.fit, main="Cluster-SFR")
+rect.hclust(SFRdata.fit, k=5, border="brown1")
+```
+
+These clusters are related to their customer services. 
+
+### 2.4 Hashtag Analysis
+
+A word can be considerate as un Hastag if it begins with "#".
+```{r message=FALSE, warning=FALSE}
+signature_hashtag <- regexpr("^#[[:alnum:]_]*",all_words)
+list_hashtag <- regmatches(all_words,signature_hashtag)
+```
+
+Number of hastags:
+```{r message=TRUE, warning=FALSE}
+print(length(list_hashtag))
+```
+
+
+In order to know what the most used hashtag, we create a list of hashtag and sort the frequency in descending order.
+```{r}
+nb_hashtags <- table(list_hashtag)
+sort_nb_hashtags <- sort(nb_hashtags,decreasing=TRUE)
+hash = print(sort_nb_hashtags[1:10])
+```
+
+Displayed of the  10 most frequent hashtags.
+```{r message=FALSE, warning=FALSE}
+barplot(sort(hash,decreasing=TRUE),las=2,cex.names=0.7,col="brown1", main='10 most frequent Hashtags')
+```
+
+SFR is the most frequent hashtag which seems normal concidering the fact that we use this word to do the extractaction.
+One of the most frequent Hashtag is 5G.
+
+We display a wordcloud of the most frequent hashtags.
+```{r message=FALSE, warning=FALSE}
+wordcloud(names(sort_nb_hashtags)[-1],sort_nb_hashtags[-1],scale=c(3,.5),colors=brewer.pal(6, "Dark2"))
+```
+
+We can notice a lot of client unsatisfaction regarding "sfrvoleur", "raslebol", "sfrvoleur", "sfrescrocs", "arnaque".
+But the most significant is 5G with the highest number of hastags.
+
+List of hashtags with 5G and their apparition
+```{r}
+hashtags_5g<- nb_hashtags[grep("5g",names(nb_hashtags))]
+print(sort(hashtags_5g,decreasing=TRUE))
+```
+
+```{r}
+barplot(sort(hashtags_5g,decreasing=TRUE),las=2,cex.names=0.7,col="green2")
+```
+
+
+#### Hashtag network
+
+```{r}
+tags<-function(x) toupper(grep("#",strsplit(x," +")[[1]],value=TRUE))
+l <- nrow(SFRdata)
+taglist <- vector(mode = "list", l)
+texts <- vector(mode = "character", length = l)
+
+for (i in 1:l) texts[i] <- SFRdata$text[i]
+texts <- iconv(texts, to = "ASCII", sub="")
+```
+
+```{r}
+j<-0
+for(i in 1:l){
+  if(is.na(str_match(texts[i],"#"))[1,1]==FALSE){
+    j<-j+1
+    taglist[[j]]<-str_squish(removePunctuation(tags(ifelse(is.na(str_match(texts[i], "[\n]")[1,1])==TRUE,texts[i],gsub("[\n]"," ", texts[i])))))
+  }
+}
+
+alltags <- NULL
+for (i in 1:l) alltags<-union(alltags,taglist[[i]])
+
+hash.graph <- graph.empty(directed = T)
+
+hash.graph <- hash.graph + vertices(alltags)
+```
+
+```{r}
+for (tags in taglist){
+  if (length(tags)>1){
+    for (pair in combn(length(tags),2,simplify=FALSE, FUN=function(x) sort(tags[x]))){
+      if (pair[1]!=pair[2]) {
+        if (hash.graph[pair[1],pair[2]]==0)
+          hash.graph<-hash.graph+edge(pair[1],pair[2])
+      }
+    }
+  }
+}
+
+
+V(hash.graph)$color <- "blue"
+E(hash.graph)$color <- "black"
+V(hash.graph)$name <- paste("#",V(hash.graph)$name, sep = "")
+V(hash.graph)$label.cex = 0.75
+V(hash.graph)$size <- 12
+V(hash.graph)$size2 <- 12
+hash.graph_simple<-delete.vertices(simplify(hash.graph),
+degree(hash.graph)<=20)
+```
+
+```{r message=FALSE, warning=FALSE}
+plot(hash.graph_simple, edge.width = 2,
+edge.color = "grey", vertex.color = "tan",
+vertex.frame.color="tan", label.color = "blue",
+vertex.label.font=12, edge.arrow.size=0.5)
+```
+
+
+The hashtag "BONPLAN" can show us that SFR may be the most attractive french operator. Possibily due to affordable offers such as RedbySfr.
+
+
+### 2.5 Sentiment analysis
+
+```{r message=FALSE, warning=FALSE}
+plain.text<-vector()
+for(i in 1:dim(SFRdata)[1]){
+  plain.text[i]<-SFRdata_corpus[[i]][[1]]
+}
+sentence_sentiment<-sentiment(get_sentences(plain.text))
+sentence_sentiment
+```
+
+
+```{r}
+average_sentiment<-mean(sentence_sentiment$sentiment)
+average_sentiment
+```
+
+The sentiment score is positive but very close to zero so we can say that it is globally neutral. We can explain the result due to the huge amount of answers to unsatisfied clients. 
+
+```{r}
+sd_sentiment<-sd(sentence_sentiment$sentiment)
+sd_sentiment
+```
+The standard deviation of the sentiment score is close to 0, the values are not scattered.
+
+
+```{r}
+extract_sentiment_terms(get_sentences(plain.text))
+```
+
+### 2.6 Topic Modeling
+
+```{r}
+text_corpus2<-text_corpus[1:200]
+doc.lengths<-rowSums(as.matrix(DocumentTermMatrix(text_corpus2)))
+dtm <- DocumentTermMatrix(text_corpus2[doc.lengths > 0])
+```
+
+```{r}
+SEED = sample(1:1000000, 1)
+```
+
+```{r}
+k = 2
+Topics_results<-LDA(dtm, k = k, control = list(seed = SEED))
+```
+
+```{r}
+terms(Topics_results,15)
+```
+
+```{r}
+topics(Topics_results)
+```
+
+```{r}
+tidy_model_beta<-tidy(Topics_results, matrix = "beta")
+tidy_model_beta %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  ggplot(aes(reorder(term, beta),beta,fill=factor(topic)))+
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_fill_viridis_d() +
+  coord_flip() +
+  labs(x = "Topic",
+       y = "beta score",
+       title = "Topic modeling")
+```
+
+The Topic 1 seems related to the customer, his/her satisfaction about Bouygues Telecom products and the second one to the customer service answers'.
+
+
+## 3. BouyguesTelecom data Analysis
+### 3.1 Clean and Exploratory analysis 
+
+```{r}
+class(Bouyguedata)
+head(Bouyguedata, n=10)
+```
+
+
+```{r}
+length(unique(Bouyguedata$location))
+```
+
+Removing special character in non latin language and remove to na.omit, and clean the name of the cities. 
+```{r message=FALSE, warning=FALSE}
+Bouyguedata$location2<-iconv(Bouyguedata$location,to = "ASCII", sub="")
+```
+
+Location list 
+```{r message=FALSE, warning=FALSE}
+Bouyguedata$location2[Bouyguedata$location2==""]<- NA
+Bouyguedata$location2[Bouyguedata$location2==", "]<- NA 
+Bouyguedata$location2[Bouyguedata$location2=="Paris"]<- "Paris, France"
+Bouyguedata$location2[Bouyguedata$location2=="Comparateur de forfait Mobile"]<- NA
+Bouyguedata$location2[Bouyguedata$location2=="Bordeaux"]<- "Bordeaux, France" 
+Bouyguedata$location2[Bouyguedata$location2=="Marseille"]<- "Marseille, France"
+Bouyguedata$location2[Bouyguedata$location2=="Nice"]<- "Nice, France"
+Bouyguedata$location2[Bouyguedata$location2=="Lille"]<- "Lille, France"
+Bouyguedata$location2[Bouyguedata$location2=="Lyon"]<- "Lyon, France"
+Bouyguedata$location2[Bouyguedata$location2=="Toulouse"]<- "Toulouse, France"
+```
+
+
+#### Twitter users - Unique locations 
+
+```{r}
+Bouyguedata %>%count(location2, sort=TRUE) %>%
+mutate(location2=reorder(location2,n)) %>%
+na.omit()%>% top_n(10)%>%ggplot(aes(x=location2,y=n))+ geom_bar(stat="identity")+ geom_col(fill='#33BBEE')+ coord_flip() +
+labs(x = "Location", y = "Count",title = "Twitter users locations twitting about Bouygues telecom")+ theme_light()
+```
+
+
+The seat of Bouygues Telecom is at Meudon, it explains the first position of Meudon on the barplot.
+
+
+#### Time Series of tweets counts 
+
+```{r}
+ts_plot(Bouyguedata, "hours")+
+ggplot2::theme_minimal()+
+ggplot2::theme(plot.title=ggplot2::element_text(face="bold"))+
+ggplot2::labs(x=NULL,y=NULL,
+title="Frequency of BouygueTelecome Twitter statuses",
+subtitle="Twitter status counts 1-hour intervals",
+caption="\nSource: Data collected from Twitter's API")
+```
+
+We can explain the high pic at the end of the day of the 20 of January due to a huge network failure. A lot of twitter users has wrote directly to the Bouygues Telecom account.
+
+#### Analysis of the writtors of the different tweets
+
+```{r}
+Bygtweets.df <-as.data.frame(Bouyguedata)
+print(dim(Bygtweets.df))
+print(colnames(Bygtweets.df))
+print(Bygtweets.df[1:10,c('created_at','screen_name','is_retweet','hashtags')])
+```
+
+```{r}
+NBperusersByg <- table(Bygtweets.df$screen_name)
+NBperusersByg<- sort(NBperusersByg,decreasing=TRUE)
+print(NBperusersByg[1:10])
+```
+Bouyguestelecom and BassSpleen wrote the highest number of tweets.
+
+Number of writtors of tweets during the last 7 days:
+```{r message=FALSE, warning=FALSE}
+print(length(unique(Bygtweets.df$screen_name)))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+barplot(NBperusersByg [NBperusersByg >= 15], las = 2,cex.names=0.7,col="#33BBEE", main='Most active Users - RT included')
+```
+
+
+#### Original Tweets without the RT
+
+How many tweets among all those collected are original tweets,not retweets?
+
+Number of tweets, among the 500 that are orignal: 
+```{r}
+id_originalByg <- which(!Bygtweets.df$is_retweet)
+print(length(id_originalByg))
+```
+
+
+Number of original tweets per users
+```{r}
+NBperusers_Byg <- table(Bygtweets.df$screen_name[id_originalByg])
+NBperusers_Byg <- sort(NBperusers_Byg,decreasing=TRUE)
+```
+
+
+Barplot of users that wrote more than 15 tweets (RT excluded)
+```{r}
+barplot(NBperusers_Byg [NBperusers_Byg >= 15], las = 2,cex.names=0.7, col = "#33BBEE", main='Most Active Users - Without RT') 
+```
+
+
+### 3.2 Analyse of the Users
+
+We first create a data.frame with the original message
+Removing of the duplicate 
+```{r message=TRUE, warning=FALSE}
+originalmsgByg.df <- Bygtweets.df[!duplicated(Bygtweets.df$text),]
+```
+
+Number of tweets without duplicate:
+```{r}
+print(nrow(originalmsgByg.df))
+```
+
+We collect these messages in a specify vector :
+```{r}
+messagesByg <- originalmsgByg.df$text
+```
+
+```{r}
+print(length(messagesByg))
+```
+
+Verification of the lenght
+```{r}
+print(messagesByg[520])
+```
+
+```{r message=FALSE, warning=FALSE}
+msgCleanByg <- iconv(messagesByg, to = "ASCII", sub="")
+msgCleanByg <- gsub("\n"," ",messagesByg)
+msgCleanByg <- gsub('http\\S+\\s*',"",msgCleanByg)
+msgCleanByg <- gsub("\\s+"," ",msgCleanByg)
+msgCleanByg <- gsub("[\\]","",msgCleanByg)
+msgCleanByg <- gsub("\\s*$","",msgCleanByg)
+msgCleanByg <- tolower(msgCleanByg)
+msgCleanByg <- gsub("[Ã©Ã¨Ãª]","e",msgCleanByg)
+msgCleanByg <- gsub("[Ã Ã¢]","a",msgCleanByg)
+msgCleanByg <- gsub("[Ã¹Ã»]","u",msgCleanByg)
+msgCleanByg <- gsub("rt ","",msgCleanByg)
+```
+
+Verification of the message 520
+```{r}
+print(msgCleanByg[520])
+```
+
+Remove of the duplicates
+```{r}
+msgCleanByg <- msgCleanByg[!duplicated(msgCleanByg)]
+```
+
+Numbers of tweets messages
+```{r}
+print(length(msgCleanByg)) 
+```
+
+Isolate each word between spaces
+```{r}
+all_wordsByg <- unlist(strsplit(msgCleanByg," "))
+```
+
+On the text to determine a user we can look for "@"
+```{r}
+signature_usersByg <- regexpr("^@[[:alnum:]_]*",all_wordsByg)
+```
+
+Find of the terms with an "#"
+```{r}
+list_usersByg <- regmatches(all_wordsByg,signature_usersByg)
+```
+
+Numbers of hashtag
+```{r}
+print(length(list_usersByg))
+```
+
+Aparition of the users
+```{r}
+nb_usersByg <- table(list_usersByg)
+sort_nb_usersByg <- sort(nb_usersByg,decreasing=TRUE)
+```
+
+Most frequent user
+```{r}
+print(sort_nb_usersByg[1:10])
+```
+
+
+### 3.3 Cluster analysis
+
+```{r message=FALSE, warning=FALSE}
+usableTextByg <- iconv(Bouyguedata$text, to = "ASCII", sub="")
+Bouyguedata_corpus<-Corpus(VectorSource(usableTextByg))
+Bouyguedata_corpus<-tm_map(Bouyguedata_corpus,tolower)
+Bouyguedata_corpus<-tm_map(Bouyguedata_corpus,function(x)removeWords(x,stopwords("french")))
+Bouyguedata_corpus<-tm_map(Bouyguedata_corpus,removePunctuation)
+Bouyguedata_corpus<-tm_map(Bouyguedata_corpus,removeNumbers)
+Bouyguedata_corpus<-tm_map(Bouyguedata_corpus,removeWords,c("chez","faire","tout","jai","tout","fait","cest","plus","dites","quand","mme","meme","passe","rien","depuis","pouvez","svp","bjr","bonjour"))
+
+text_corpusByg <- tm_map(Bouyguedata_corpus,content_transformer(function(x) iconv(x,to='ASCII',sub='byte')))
+
+```
+
+
+```{r}
+Bouyguedata.tdm <- TermDocumentMatrix(text_corpusByg)
+m <- as.matrix(Bouyguedata.tdm)
+m[1:10,1:10]
+```
+
+
+```{r}
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 50)
+```
+
+
+```{r}
+barplot(d[1:20,]$freq, las = 3, names.arg = d[1:20,]$word,col ="#33BBEE", main ="Most frequent words",ylab = "Word frequencies")
+```
+
+We still find words related to the customers service but also linked to the main competitors of Bouygues Telecom.
+Bouyguestelecom is the most frequent word which is normal considering that we used it to do the extraction.
+
+```{r}
+print(text_corpusByg[[520]]$content)
+```
+
+
+```{r}
+Bouyguedata.tdm
+```
+
+
+```{r}
+findFreqTerms(Bouyguedata.tdm, lowfreq=10)[1:10]
+```
+
+
+```{r}
+Bouyguedata.tdm<-removeSparseTerms(Bouyguedata.tdm,sparse=0.95)
+Bouyguedata.df <- as.data.frame(as.matrix(Bouyguedata.tdm))
+```
+
+
+```{r}
+Bouyguedata.df.scale <- scale(Bouyguedata.df)
+Bouyguedata.dist <- dist(Bouyguedata.df.scale,method = "euclidean")
+```
+
+
+```{r}
+Bouyguedata.fit<-hclust(Bouyguedata.dist, method="ward.D2")
+plot(Bouyguedata.fit, main="Cluster-Bouygues")
+```
+
+
+```{r}
+groups <- cutree(Bouyguedata.fit, k=5)
+plot(Bouyguedata.fit, main="Cluster-Bouygues")
+rect.hclust(Bouyguedata.fit, k=5, border="#33BBEE")
+```
+
+
+As SFR Cluster, they are all related to customer services. 
+
+
+### 3.4 Hastag Analysis
+
+A word can be considerate as a Hastag if it begins with "#"
+```{r}
+signature_hashtagByg <- regexpr("^#[[:alnum:]_]*",all_wordsByg)
+list_hashtagByg <- regmatches(all_wordsByg,signature_hashtagByg)
+```
+
+Number of hastags
+```{r}
+print(length(list_hashtagByg))
+```
+
+Frenquency of hastags
+```{r}
+nb_hashtagsByg <- table(list_hashtagByg)
+sort_nb_hashtagsByg <- sort(nb_hashtagsByg,decreasing=TRUE)
+```
+
+Displayed of the  10 most frequent hastags
+```{r}
+hashByg = print(sort_nb_hashtagsByg[1:10])
+```
+
+
+```{r}
+barplot(sort(hashByg,decreasing=TRUE),las=2,cex.names=0.7,col="#33BBEE")
+```
+
+One of the most popular hastag is again 5G.
+
+```{r}
+wordcloud(names(sort_nb_hashtagsByg)[-1],sort_nb_hashtagsByg[-1],scale=c(3,.5),colors=brewer.pal(6, "Dark2"))
+```
+
+List of hashtags with 5G and their apparition
+```{r}
+hashtags_5gByg<- nb_hashtagsByg[grep("5g",names(nb_hashtagsByg))]
+print(sort(hashtags_5gByg,decreasing=TRUE))
+```
+
+
+```{r}
+barplot(sort(hashtags_5gByg,decreasing=TRUE),las=2,cex.names=0.7,col="green2")
+```
+
+
+#### Hashtag Network
+
+```{r}
+tags<-function(x) toupper(grep("#",strsplit(x," +")[[1]],value=TRUE))
+l <- nrow(Bouyguedata)
+taglist <- vector(mode = "list", l)
+texts <- vector(mode = "character", length = l)
+
+for (i in 1:l) texts[i] <- Bouyguedata$text[i]
+texts <- iconv(texts, to = "ASCII", sub="")
+```
+
+
+```{r}
+j<-0
+for(i in 1:l){
+  if(is.na(str_match(texts[i],"#"))[1,1]==FALSE){
+    j<-j+1
+    taglist[[j]]<-str_squish(removePunctuation(tags(ifelse(is.na(str_match(texts[i], "[\n]")[1,1])==TRUE,texts[i],gsub("[\n]"," ", texts[i])))))
+  }
+}
+
+alltags <- NULL
+for (i in 1:l) alltags<-union(alltags,taglist[[i]])
+
+hash.graph <- graph.empty(directed = T)
+
+hash.graph <- hash.graph + vertices(alltags)
+
+for (tags in taglist){
+  if (length(tags)>1){
+    for (pair in combn(length(tags),2,simplify=FALSE, FUN=function(x) sort(tags[x]))){
+      if (pair[1]!=pair[2]) {
+        if (hash.graph[pair[1],pair[2]]==0)
+          hash.graph<-hash.graph+edge(pair[1],pair[2])
+      }
+    }
+  }
+}
+```
+
+
+```{r}
+V(hash.graph)$color <- "blue"
+E(hash.graph)$color <- "black"
+V(hash.graph)$name <- paste("#",V(hash.graph)$name, sep = "")
+V(hash.graph)$label.cex = 0.75
+V(hash.graph)$size <- 12
+V(hash.graph)$size2 <- 2
+hash.graph_simple<-delete.vertices(simplify(hash.graph),
+                                   degree(hash.graph)<=10)
+```
+
+
+```{r}
+plot(hash.graph_simple, edge.width = 2,
+     edge.color = "grey", vertex.color = "tan",
+     vertex.frame.color="tan", label.color = "blue",
+     vertex.label.font=2, edge.arrow.size=0,5)
+```
+
+
+We can clearly identify the main topics: the competitors, the new offers as BBOX, Cloud linked to 5G and 5G.
+
+
+### 3.5 Sentiment analysis
+
+```{r}
+plain.text<-vector()
+for(i in 1:dim(Bouyguedata)[1]){
+  plain.text[i]<-Bouyguedata_corpus[[i]][[1]]
+}
+```
+
+
+```{r}
+sentence_sentiment<-sentiment(get_sentences(plain.text))
+sentence_sentiment
+```
+
+
+```{r}
+average_sentiment<-mean(sentence_sentiment$sentiment)
+average_sentiment
+```
+As SFR, Bouygues Telecom uses its twitter account as a custumer services so it can explain why the average is around zero.
+
+```{r}
+extract_sentiment_terms(get_sentences(plain.text))
+```
+
+### 3.6 Topic Modeling
+
+```{r}
+text_corpus2Byg<-text_corpusByg[1:200]
+doc.lengths<-rowSums(as.matrix(DocumentTermMatrix(text_corpus2Byg)))
+dtm <- DocumentTermMatrix(text_corpus2Byg[doc.lengths > 0])
+```
+
+
+```{r}
+SEED = sample(1:1000000, 1)
+```
+
+
+```{r}
+k = 2
+Topics_results<-LDA(dtm, k = k, control = list(seed = SEED))
+```
+
+
+```{r}
+terms(Topics_results,15)
+```
+
+
+```{r}
+topics(Topics_results)
+```
+
+
+```{r}
+tidy_model_beta<-tidy(Topics_results, matrix = "beta")
+tidy_model_beta %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  ggplot(aes(reorder(term, beta),beta,fill=factor(topic)))+
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_fill_viridis_d() +
+  coord_flip() +
+  labs(x = "Topic",
+       y = "beta score",
+       title = "Topic modeling")
+```
+
+Same as SFR, the first Topic seems related to the customer questions and the second one to the customer service answers and help.
+
+## 4. Analysis of 5G 
+### 4.1 Clean and Exploratory Analysis 
+
+```{r}
+class(data5G)
+head(data5G, n=2)
+```
+
+Number of location represented: 
+```{r}
+length(unique(data5G$location))
+```
+
+```{r}
+data5G$location2<-iconv(data5G$location,to = "ASCII", sub="")
+```
+
+Location list 
+```{r}
+data5G$location2[data5G$location2==""]<- NA
+data5G$location2[data5G$location2==", "]<- NA
+data5G$location2[data5G$location2=="Paris"]<- "Paris, France"
+data5G$location2[data5G$location2=="Bordeaux"]<- "Bordeaux, France"
+data5G$location2[data5G$location2=="Marseille"]<- "Marseille, France"
+data5G$location2[data5G$location2=="Nice"]<- "Nice, France"
+data5G$location2[data5G$location2=="Lille"]<- "Lille, France"
+data5G$location2[data5G$location2=="Lyon"]<- "Lyon, France"
+data5G$location2[data5G$location2=="Toulouse"]<- "Toulouse, France"
+data5G$location2[data5G$location2=="Paris, Ile-de-France"]<- "Paris, France"
+data5G$location2[data5G$location2=="Ile-de-France, France"]<- "Paris, France"
+```
+
+#### Twitter users - unique locations
+
+```{r message=FALSE, warning=FALSE}
+data5G %>%count(location2, sort=TRUE) %>%
+mutate(location2=reorder(location2,n)) %>%
+na.omit()%>% top_n(10)%>%ggplot(aes(x=location2,y=n))+ geom_bar(stat="identity")+ geom_col(fill='green2')+ coord_flip() +
+labs(x = "Location", y = "Count",title = "Twitter users - unique locations ")+ theme_light()
+```
+
+
+#### Time series of tweets counts
+
+Plot time series of tweets
+```{r}
+ts_plot(data5G, "hours")+
+ggplot2::theme_minimal()+
+ggplot2::theme(plot.title=ggplot2::element_text(face="bold"))+
+ggplot2::labs(x=NULL,y=NULL,
+title="Frequency of SFR Twitter statuses",
+subtitle="Twitter status counts 1-hour intervals",
+caption="\nSource: Data collected from Twitter's API")
+```
+
+We can see a huge pic on the evening of the 26 January, it can be explain by the diffusion on BFM Business of an interview about the Use of 5G.
+
+```{r}
+tweets5G.df <-as.data.frame(data5G)
+print(dim(tweets5G.df))
+print(colnames(tweets5G.df))
+print(tweets5G.df[1:10,c('created_at','screen_name','is_retweet','hashtags')])
+
+```
+
+
+#### Analysis of the writtors of the tweets
+
+```{r}
+NBperusers2 <- table(tweets5G.df$screen_name)
+NBperusers2<- sort(NBperusers2,decreasing=TRUE)
+print(NBperusers2[1:10])
+```
+
+Digitaltrans4mF wrote the highest number of tweets 
+
+Number of writtors of tweets during the last 7 days: 
+```{r}
+print(length(unique(tweets5G.df$screen_name)))
+```
+
+Barplot of users that wrote more than 8 tweets.
+```{r}
+barplot(NBperusers2 [NBperusers2 >= 8], las = 2,cex.names=0.7,col="green2", main='Most Active Users - RT Included')
+```
+
+
+#### Original Tweets without the RT
+
+```{r}
+id_original2 <- which(!tweets5G.df$is_retweet)
+print(length(id_original2))
+```
+
+Number of original tweets per users
+```{r}
+NBperusers_2 <- table(tweets5G.df$screen_name[id_original2])
+NBperusers_2 <- sort(NBperusers_2,decreasing=TRUE)
+```
+
+Barplot of users that wrote more than 10 tweets (RT excluded)
+
+```{r}
+barplot(NBperusers_2 [NBperusers_bis >= 10], las = 2,cex.names=0.7, col = "green2", main='Most Active Users - Without RT')
+```
+
+### 4.2 Analysis of the Users 
+
+We first create a data.frame with the original message
+Removing of the duplicate 
+```{r}
+originalmsg5g.df <- tweets5G.df[!duplicated(tweets5G.df$text),]
+```
+
+Number of tweets without duplicate:
+```{r}
+print(nrow(originalmsg5g.df))
+```
+
+We collect in a specify vector :
+```{r}
+messages5g <- originalmsg5g.df$text
+```
+
+```{r}
+print(length(messages5g))
+```
+
+Verification of the lenght
+```{r}
+print(messages5g[1])
+```
+
+```{r}
+msgClean5g <- iconv(messages5g, to = "ASCII", sub="") 
+msgClean5g <- gsub("\n"," ",messages5g)
+msgClean5g <- gsub('http\\S+\\s*',"",msgClean5g)
+msgClean5g <- gsub("\\s+"," ",msgClean5g)
+msgClean5g <- gsub("[\\]","",msgClean5g)
+msgClean5g <- gsub("\\s*$","",msgClean5g)
+msgClean5g <- tolower(msgClean5g)
+msgClean5g <- gsub("[éèê]","e",msgClean5g)
+msgClean5g <- gsub("[àâ]","a",msgClean5g)
+msgClean5g <- gsub("[ùû]","u",msgClean5g)
+msgClean5g <- gsub("rt ","",msgClean5g)
+```
+
+
+Verification of the message 1
+```{r}
+print(msgClean5g[1])
+```
+
+Remove of the duplicates
+```{r}
+msgClean5g <- msgClean5g[!duplicated(msgClean5g)]
+```
+
+Numbers of tweets messages
+```{r}
+print(length(msgClean5g)) 
+```
+
+Isolate each word between spaces
+```{r}
+all_words5g <- unlist(strsplit(msgClean5g," "))
+```
+
+On the text to dermine a user we can looking for "@"
+```{r}
+signature_users5g <- regexpr("^@[[:alnum:]_]*",all_words5g)
+```
+
+Find of the terms with an "#"
+```{r}
+list_users5g <- regmatches(all_words5g,signature_users5g)
+```
+
+Numbers of hashtag
+```{r}
+print(length(list_users5g))
+```
+
+Aparition of the users
+```{r}
+nb_users5g <- table(list_users5g)
+sort_nb_users5g <- sort(nb_users5g,decreasing=TRUE)
+```
+
+Most frequent users
+```{r}
+print(sort_nb_users5g[1:10])
+```
+
+On the top 10 of the users of the hastag 5g, we found some of the 4 biggest french operators.
+Thus, it shows us their will to enter on this wave of numerical transformation.
+
+
+### 4.3 Cluster analysis
+
+```{r}
+usableText5g <- iconv(data5G$text, to = "ASCII", sub="")
+```
+
+```{r message=FALSE, warning=FALSE}
+data5g_corpus<-Corpus(VectorSource(usableText5g))
+
+data5g_corpus<-tm_map(data5g_corpus,tolower)
+```
+
+```{r message=FALSE, warning=FALSE}
+data5g_corpus<-tm_map(data5g_corpus,function(x)removeWords(x,stopwords("french")))
+data5g_corpus<-tm_map(data5g_corpus,removePunctuation)
+
+data5g_corpus<-tm_map(data5g_corpus,removeNumbers)
+data5g_corpus<-tm_map(data5g_corpus,removeWords,c("chez","faire","tout","jai","tout","fait","cest","plus","dites","quand","mme","meme","passe","rien","depuis","pouvez","tre","juste","peu","dit","sinon","dus","parce"))
+text_corpus5g <- tm_map(data5g_corpus,content_transformer(function(x) iconv(x,to='ASCII',sub='byte')))
+```
+
+```{r}
+data5g.tdm <- TermDocumentMatrix(text_corpus5g)
+m2 <- as.matrix(data5g.tdm)
+m2[1:10,1:10]
+```
+
+
+```{r}
+v2 <- sort(rowSums(m2),decreasing=TRUE)
+d2 <- data.frame(word = names(v2),freq=v2)
+head(d2, 50)
+```
+
+```{r}
+barplot(d2[1:20,]$freq, las = 3, names.arg = d2[1:20,]$word,col ="green2", main ="Most frequent words",ylab = "Word frequencies")
+```
+
+
+Huawei is part of the most mentionned words because the Huawei phones are excluded from the french 5G network.
+We can also see the doubts of French people (covid, risquez, surveillance...)
+
+```{r}
+print(text_corpus5g[[1]]$content)
+```
+
+#### 5G terms frequency
+
+```{r}
+data5g.tdm
+```
+
+```{r}
+findFreqTerms(data5g.tdm, lowfreq=10)[1:10]
+```
+
+
+```{r}
+data5g.tdm<-removeSparseTerms(data5g.tdm,sparse=0.95)
+data5g.df <- as.data.frame(as.matrix(data5g.tdm))
+```
+
+
+```{r}
+data5g.df.scale <- scale(data5g.df)
+data5g.dist <- dist(data5g.df.scale,method = "euclidean")
+```
+
+
+```{r}
+data5g.fit<-hclust(data5g.dist, method="ward.D2")
+plot(data5g.fit, main="Cluster-5G")
+```
+
+
+```{r}
+groups5g <- cutree(data5g.fit, k=4)
+plot(data5g.fit, main="Cluster-5G")
+rect.hclust(data5g.fit, k=4, border="green2")
+```
+
+
+Cluster 1: the Huawei polemic about its exclusion in the 5G French network.
+
+Cluster 2 & 3: mostly about the doubts, uncertainty, mass surveillance of the population.
+
+Cluster 4: The rumor about the correlation between the 5G network and the Covid vaccine.
+
+
+### 4.4. Hastag Analysis
+
+A word can be considerate as un Hastag if it begins with "#"
+```{r}
+signature_hashtag5g <- regexpr("^#[[:alnum:]_]*",all_words5g)
+```
+
+```{r}
+list_hashtag5g <- regmatches(all_words5g,signature_hashtag5g)
+```
+
+Number of different hastags:
+```{r}
+print(length(list_hashtag5g)) 
+```
+
+Frenquency of hastags
+```{r}
+nb_hashtags5g <- table(list_hashtag5g)
+sort_nb_hashtags5g <- sort(nb_hashtags5g,decreasing=TRUE)
+```
+
+Displayed of the  10 most frequent hastags
+```{r}
+hash5g = print(sort_nb_hashtags5g[1:10])
+```
+
+```{r}
+barplot(sort(hash5g,decreasing=TRUE),las=2,cex.names=0.7,col="green2", main='Most Active Users - RT included')
+```
+
+
+5G is the most frequent hashtag which is normal considering we use this word to do the extract.
+One of the most frequent hastag is Touscomplotistes which refers to the scandal related to the vaccine and reinforce the fact that French people are not confortable with the 5G.
+
+```{r message=FALSE, warning=FALSE}
+wordcloud(names(sort_nb_hashtags5g)[-1],sort_nb_hashtags5g[-1],scale=c(3,.5),colors=brewer.pal(6, "Dark2"))
+```
+
+On the worldcloud we can see different french operators, the relation with the Covid-19 and the skeptical feeling via some hashtags such as "complotistes" or "complotism", "noussachons" and "camera".
+
+```{r}
+tags5g<-function(x) toupper(grep("#",strsplit(x," +")[[1]],value=TRUE))
+l2 <- nrow(data5G)
+taglist5g <- vector(mode = "list", l2)
+texts5g <- vector(mode = "character", length = l2)
+```
+
+#### Hashtag Network 
+
+```{r}
+tags<-function(x) toupper(grep("#",strsplit(x," +")[[1]],value=TRUE))
+l <- nrow(data5G)
+taglist <- vector(mode = "list", l)
+texts <- vector(mode = "character", length = l)
+
+for (i in 1:l) texts[i] <- data5G$text[i]
+texts <- iconv(texts, to = "ASCII", sub="")
+```
+
+
+```{r}
+j<-0
+for(i in 1:l){
+  if(is.na(str_match(texts[i],"#"))[1,1]==FALSE){
+    j<-j+1
+    taglist[[j]]<-str_squish(removePunctuation(tags(ifelse(is.na(str_match(texts[i], "[\n]")[1,1])==TRUE,texts[i],gsub("[\n]"," ", texts[i])))))
+  }
+}
+
+alltags <- NULL
+for (i in 1:l) alltags<-union(alltags,taglist[[i]])
+
+hash.graph <- graph.empty(directed = T)
+
+hash.graph <- hash.graph + vertices(alltags)
+
+for (tags in taglist){
+  if (length(tags)>1){
+    for (pair in combn(length(tags),2,simplify=FALSE, FUN=function(x) sort(tags[x]))){
+      if (pair[1]!=pair[2]) {
+        if (hash.graph[pair[1],pair[2]]==0)
+          hash.graph<-hash.graph+edge(pair[1],pair[2])
+      }
+    }
+  }
+}
+```
+
+
+```{r}
+V(hash.graph)$color <- "blue"
+E(hash.graph)$color <- "black"
+V(hash.graph)$name <- paste("#",V(hash.graph)$name, sep = "")
+V(hash.graph)$label.cex = 0.75
+V(hash.graph)$size <- 12
+V(hash.graph)$size2 <- 2
+hash.graph_simple<-delete.vertices(simplify(hash.graph),
+                                   degree(hash.graph)<=30)
+```
+
+
+```{r}
+plot(hash.graph_simple, edge.width = 2,
+     edge.color = "grey", vertex.color = "tan",
+     vertex.frame.color="tan", label.color = "blue",
+     vertex.label.font=2, edge.arrow.size=0,5)
+```
+
+This 5G network gather a lot of new technlogies such as Machine Learning, IOT, Fintech and AI. But what strick us is that the most correlated hashtags are not the main french operators. 
+
+
+### 4.5 Sentiment analysis
+
+```{r}
+plain.text<-vector()
+for(i in 1:dim(data5G)[1]){
+  plain.text[i]<- data5g_corpus[[i]][[1]]
+}
+```
+
+
+```{r}
+sentence_sentiment<-sentiment(get_sentences(plain.text))
+sentence_sentiment
+```
+
+```{r}
+average_sentiment<-mean(sentence_sentiment$sentiment)
+average_sentiment
+```
+
+Surprisingly, the sentiment score is positive despite all the doubts and fear about this technology.
+
+```{r}
+extract_sentiment_terms(get_sentences(plain.text))
+```
+
+### 4.6 Topic Modeling
+
+```{r}
+text_corpus2<-text_corpus5g[1:200]
+doc.lengths<-rowSums(as.matrix(DocumentTermMatrix(text_corpus2)))
+dtm <- DocumentTermMatrix(text_corpus2[doc.lengths > 0])
+```
+
+```{r}
+SEED = sample(1:1000000, 1)
+```
+
+```{r}
+k = 2
+Topics_results<-LDA(dtm, k = k, control = list(seed = SEED))
+```
+
+
+```{r}
+terms(Topics_results,15)
+```
+
+```{r}
+topics(Topics_results)
+```
+
+
+```{r}
+tidy_model_beta<-tidy(Topics_results, matrix = "beta")
+tidy_model_beta %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  ggplot(aes(reorder(term, beta),beta,fill=factor(topic)))+
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_fill_viridis_d() +
+  coord_flip() +
+  labs(x = "Topic",
+       y = "beta score",
+       title = "Topic modeling")
+```
+
+## 5. Business Conclusion
+
+For both operators the hastag 5G is the first mentionned, so we can see that the 5G is part and parcel of their communication strategy.
+
+When we talk about 5G, the subject is not directly link to the french operators but mostly about the main controversial topics such as the impact of the 5G on Covid-19 vaccined people, the fear of French people of the dangerous wave the 5G can generate. 
+On the other hand, the operators made the 5G the most popular subject of their twitter communication and marketing campaigns strategy. 
+
+The operators should adjust their communication in order to reassure the population. To adopt this new offer the consumer should first feel confident and safe toward his health. 
+
+Regarding the drawbacks of the analysis, we can say that our work was focused on twitter results, but the issue is that the operators usually use this social media as after sales customer services, so a huge part of the tweets listed are answers to dissatisfied clients. 
+Moreover, for the same reasons the sentiment analysis is not really relevant regarding the high number of answers to clients.
+
+Above all, we can notify a lot of different problematics linked to 5G but thanks to the hastag network analysis we can say that the 4 biggest french operators are those talking the most about 5g on their twitter account.
+
+On the whole, the population keep being skeptical no matter the new advertising campaign, so we can wonder if the french people are really ready to this king of advanced new technology?
+
