@@ -1,8 +1,8 @@
 ## Social-Media-analysis
 
-Concerning the Project on “Advanced Social Media Analytics”
-Profesor : Serge NYAWA
-Student : Julieva Cohen-Sors and Alexandra Amiens
+##### Concerning the Project on “Advanced Social Media Analytics” <br>
+##### Profesor : Serge NYAWA <br>
+##### Student : Julieva Cohen-Sors and Alexandra Amiens <br>
 
 Your topic should be related to Social Media Analytics with a Business/economics/finance interest;
 Your dataset should come from a social media / blog / website;
